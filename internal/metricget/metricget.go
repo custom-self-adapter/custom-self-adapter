@@ -20,7 +20,6 @@ limitations under the License.
 package metricget
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,14 +32,13 @@ import (
 	"github.com/jthomperoo/k8shorizmetrics/v3"
 	"github.com/jthomperoo/k8shorizmetrics/v3/metrics"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 )
 
 // GetMetricer provides methods for retrieving metrics
 type GetMetricer interface {
-	GetMetrics(info metric.Info, podSelector labels.Selector, currentReplicas int32) ([]*metric.ResourceMetric, error)
+	GetMetrics(info metric.Info, podSelector labels.Selector) ([]*metric.ResourceMetric, error)
 }
 
 type K8sMetricGatherer interface {

@@ -25,15 +25,16 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/custom-self-adapter/custom-self-adapter/adapt"
 	apiv1 "github.com/custom-self-adapter/custom-self-adapter/api/v1"
 	"github.com/custom-self-adapter/custom-self-adapter/config"
 	"github.com/custom-self-adapter/custom-self-adapter/evaluate"
+	"github.com/custom-self-adapter/custom-self-adapter/internal/adapting"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/evaluatecalc"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/metricget"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/resourceclient"
 	"github.com/custom-self-adapter/custom-self-adapter/metric"
 	"github.com/go-chi/chi"
-
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -46,9 +47,9 @@ type API struct {
 	Router          chi.Router
 	Config          *config.Config
 	Client          resourceclient.Client
-	Scaler          scaling.Scaler
 	GetMetricer     metricget.GetMetricer
 	GetEvaluationer evaluatecalc.GetEvaluationer
+	Adapter         adapting.Adapter
 }
 
 // Routes sets up routing for the API
@@ -90,22 +91,13 @@ func (api *API) getMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scaleResource, err := api.Scaler.GetScaleSubResource(api.Config.ScaleTargetRef.APIVersion, api.Config.ScaleTargetRef.Kind, api.Config.Namespace, api.Config.ScaleTargetRef.Name)
-	if err != nil {
-		apiError(w, &apiv1.Error{
-			Message: err.Error(),
-			Code:    http.StatusInternalServerError,
-		})
-		return
-	}
-
 	// Set run type
 	runType := config.APIRunType
 	if dryRun {
 		runType = config.APIDryRunRunType
 	}
 
-	selector, err := labels.Parse(scaleResource.Status.Selector)
+	selector, err := labels.Parse(labels.FormatLabels(resource.GetLabels()))
 	if err != nil {
 		apiError(w, &apiv1.Error{
 			Message: err.Error(),
@@ -117,8 +109,7 @@ func (api *API) getMetrics(w http.ResponseWriter, r *http.Request) {
 	// Get metrics
 	metrics, err := api.GetMetricer.GetMetrics(metric.Info{
 		Resource: resource,
-		RunType:  runType,
-	}, selector, scaleResource.Spec.Replicas)
+	}, selector)
 	if err != nil {
 		apiError(w, &apiv1.Error{
 			Message: err.Error(),
@@ -165,14 +156,7 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scaleResource, err := api.Scaler.GetScaleSubResource(api.Config.ScaleTargetRef.APIVersion, api.Config.ScaleTargetRef.Kind, api.Config.Namespace, api.Config.ScaleTargetRef.Name)
-	if err != nil {
-		apiError(w, &apiv1.Error{
-			Message: err.Error(),
-			Code:    http.StatusInternalServerError,
-		})
-		return
-	}
+	selector, err := labels.Parse(labels.FormatLabels(resource.GetLabels()))
 
 	// Set run type
 	runType := config.APIRunType
@@ -180,20 +164,10 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 		runType = config.APIDryRunRunType
 	}
 
-	selector, err := labels.Parse(scaleResource.Status.Selector)
-	if err != nil {
-		apiError(w, &apiv1.Error{
-			Message: err.Error(),
-			Code:    http.StatusInternalServerError,
-		})
-		return
-	}
-
 	// Get metrics
 	metrics, err := api.GetMetricer.GetMetrics(metric.Info{
 		Resource: resource,
-		RunType:  runType,
-	}, selector, scaleResource.Spec.Replicas)
+	}, selector)
 	if err != nil {
 		apiError(w, &apiv1.Error{
 			Message: err.Error(),
@@ -217,15 +191,11 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 
 	// Scale if not a dry run
 	if !dryRun {
-		evaluation, err = api.Scaler.Scale(scale.Info{
-			Evaluation:     *evaluation,
-			Resource:       resource,
-			MinReplicas:    api.Config.MinReplicas,
-			MaxReplicas:    api.Config.MaxReplicas,
-			Namespace:      api.Config.Namespace,
-			ScaleTargetRef: api.Config.ScaleTargetRef,
-			RunType:        runType,
-		}, scaleResource)
+		adaptation, err := api.Adapter.Adapt(adapt.Info{
+			Evaluation: *evaluation,
+			Resource:   resource,
+			RunType:    runType,
+		})
 		if err != nil {
 			apiError(w, &apiv1.Error{
 				Message: err.Error(),
@@ -233,16 +203,15 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		response, err := json.Marshal(adaptation)
+		if err != nil {
+			// Should not occur, panic
+			panic(err)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(response)
 	}
 
-	// Convert evaluation into JSON
-	response, err := json.Marshal(evaluation)
-	if err != nil {
-		// Should not occur, panic
-		panic(err)
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
 }
 
 func (api *API) notFound(w http.ResponseWriter, r *http.Request) {

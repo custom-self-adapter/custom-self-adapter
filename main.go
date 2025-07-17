@@ -1,4 +1,5 @@
 /*
+Copyright 2021 The Custom Pod Autoscaler Authors.
 Copyright 2025 The Custom Self-Adapter Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,17 +37,18 @@ import (
 	"syscall"
 	"time"
 
-
-	"github.com/go-chi/chi"
-	"github.com/golang/glog"
+	"github.com/custom-self-adapter/custom-self-adapter/internal/adapting"
 	v1 "github.com/custom-self-adapter/custom-self-adapter/internal/api/v1"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/confload"
-	"github.com/custom-self-adapter/custom-self-adapter/internal/metricget"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/evaluatecalc"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/execute"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/execute/http"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/execute/shell"
+	"github.com/custom-self-adapter/custom-self-adapter/internal/metricget"
 	"github.com/custom-self-adapter/custom-self-adapter/internal/resourceclient"
+	"github.com/custom-self-adapter/custom-self-adapter/internal/selfadapter"
+	"github.com/go-chi/chi"
+	"github.com/golang/glog"
 	"github.com/jthomperoo/k8shorizmetrics/v3"
 	"github.com/jthomperoo/k8shorizmetrics/v3/metricsclient"
 	"github.com/jthomperoo/k8shorizmetrics/v3/podsclient"
@@ -56,7 +58,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	k8sscale "k8s.io/client-go/scale"
 )
 
 // Version is the version of the Custom Self-Adapter, injected in at build time
@@ -136,7 +137,7 @@ func main() {
 		glog.Fatalf("Fail to set log verbosity: %s", err)
 	}
 
-	glog.V(0).Infof("Custom Pod Autoscaler version: %s", Version)
+	glog.V(0).Infof("Custom Self Adapter version: %s", Version)
 	glog.V(1).Infoln("Setting up resources and clients")
 
 	// Set up resource client
@@ -144,13 +145,6 @@ func main() {
 		Dynamic:    dynamicClient,
 		RESTMapper: restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient),
 	}
-
-	scaleClient := k8sscale.New(
-		clientset.RESTClient(),
-		restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient),
-		dynamic.LegacyAPIPathResolverFunc,
-		k8sscale.NewDiscoveryScaleKindResolver(cachedDiscoveryClient),
-	)
 
 	// Create K8s metric gatherer, with required clients and configuration
 	metricsclient := metricsclient.NewClient(clusterConfig, cachedDiscoveryClient)
@@ -176,13 +170,11 @@ func main() {
 		},
 	}
 
-	// Set up scaling client
-	scaler := &scaling.Scale{
-		Scaler:                   scaleClient,
-		Config:                   loadedConfig,
-		Execute:                  combinedExecute,
-		RESTMapper:               restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient),
-		StabilizationEvaluations: []scaling.TimestampedEvaluation{},
+	// Set up adapter
+	adapter := &adapting.Adapt{
+		Client:  *dynamicClient,
+		Config:  loadedConfig,
+		Execute: combinedExecute,
 	}
 
 	// Set up metric gathering
@@ -208,7 +200,7 @@ func main() {
 		Client:          resourceClient,
 		GetMetricer:     metricGatherer,
 		GetEvaluationer: evaluator,
-		Scaler:          scaler,
+		Adapter:         adapter,
 	}
 	api.Routes()
 	srv := gohttp.Server{
@@ -234,13 +226,13 @@ func main() {
 		// Set up time ticker with configured interval
 		ticker := time.NewTicker(time.Duration(loadedConfig.Interval) * time.Millisecond)
 
-		// Set up scaler
-		autoscaler := &autoscaler.Scaler{
+		// Set up adapter
+		selfadapter := &selfadapter.Adapter{
 			Client:          resourceClient,
 			Config:          loadedConfig,
 			GetMetricer:     metricGatherer,
 			GetEvaluationer: evaluator,
-			Scaler:          scaler,
+			Adapter:         adapter,
 		}
 
 		// Run the scaler in a goroutine, triggered by the ticker
@@ -260,7 +252,7 @@ func main() {
 					return
 				case <-ticker.C:
 					glog.V(2).Infoln("Running autoscaler")
-					err := autoscaler.Scale()
+					err := selfadapter.Adapt()
 					if err != nil {
 						glog.Errorf("Error while autoscaling: %s", err)
 					}

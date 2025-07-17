@@ -14,23 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package evaluate
+package adapt
 
 import (
-	"github.com/custom-self-adapter/custom-self-adapter/metric"
+	"github.com/custom-self-adapter/custom-self-adapter/evaluate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO Structurate the answer that the evaluation script will give.
-// This will instruct CSA to select an adapt strategy by informing which
-// adapt script to run.
-type Evaluation struct {
-	Strategy   string `json:"strategy"`
-	Parameters any    `json:"parameters"`
+type Adaptation struct {
 }
 
 type Info struct {
-	Metrics    []*metric.ResourceMetric `json:"metrics"`
-	Resource   metav1.Object            `json:"resource"`
-	Evaluation *Evaluation              `json:"evaluation,omitempty"`
+	Evaluation evaluate.Evaluation `json:"evaluation"`
+	Resource   metav1.Object       `json:"resource"`
+	Adaptation *Adaptation         `json:"adaptation,omitempty"`
+	RunType    string              `json:"runType"`
 }
