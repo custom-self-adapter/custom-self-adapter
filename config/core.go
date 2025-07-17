@@ -21,17 +21,6 @@ import (
 )
 
 const (
-	// PerPodRunMode runs metric gathering per Pod, individually running the script
-	// for each Pod being managed with the Pod information piped into the metric
-	// gathering script
-	PerPodRunMode = "per-pod"
-	// PerResourceRunMode runs metric gathering per Resource, runnint the script
-	// only once for the resource being managed, with the resource information
-	// piped into the metric gathering script
-	PerResourceRunMode = "per-resource"
-)
-
-const (
 	// APIRunType marks the metric gathering/evaluation as running during an API
 	// request, which will use the results to adapt
 	APIRunType = "api"
@@ -50,8 +39,6 @@ const (
 	DefaultNamespace = "default"
 	// DefaultStartTime is the default start time
 	DefaultStartTime = 1
-	// DefaultRunMode is the default run mode
-	DefaultRunMode = PerPodRunMode
 	// DefaultLogVerbosity is the default log verbosity
 	DefaultLogVerbosity = 0
 	// DefaultDownscaleStabilization is the default downscale stabilization value
@@ -83,15 +70,13 @@ type Config struct {
 	PostMetric               *Method                                  `json:"postMetric"`
 	PreEvaluate              *Method                                  `json:"preEvaluate"`
 	PostEvaluate             *Method                                  `json:"postEvaluate"`
-	PreScale                 *Method                                  `json:"preScale"`
-	PostScale                *Method                                  `json:"postScale"`
+	PreAdapt                 *Method                                  `json:"preAdapt"`
+	PostAdapt                *Method                                  `json:"postAdapt"`
 	Evaluate                 *Method                                  `json:"evaluate"`
 	Metric                   *Method                                  `json:"metric"`
+	Adapt                    map[string]*Method                       `json:"adapt"`
 	Interval                 int                                      `json:"interval"`
 	Namespace                string                                   `json:"namespace"`
-	MinReplicas              int32                                    `json:"minReplicas"`
-	MaxReplicas              int32                                    `json:"maxReplicas"`
-	RunMode                  string                                   `json:"runMode"`
 	StartTime                int64                                    `json:"startTime"`
 	LogVerbosity             int32                                    `json:"logVerbosity"`
 	DownscaleStabilization   int                                      `json:"downscaleStabilization"`
@@ -107,7 +92,6 @@ func NewConfig() *Config {
 		Interval:               DefaultInterval,
 		Namespace:              DefaultNamespace,
 		StartTime:              DefaultStartTime,
-		RunMode:                DefaultRunMode,
 		DownscaleStabilization: DefaultDownscaleStabilization,
 		APIConfig: &APIConfig{
 			Enabled:  DefaultAPIEnabled,

@@ -31,5 +31,4 @@ type Info struct {
 	Metrics    []*metric.ResourceMetric `json:"metrics"`
 	Resource   metav1.Object            `json:"resource"`
 	Evaluation *Evaluation              `json:"evaluation,omitempty"`
-	RunType    string                   `json:"runType"`
 }

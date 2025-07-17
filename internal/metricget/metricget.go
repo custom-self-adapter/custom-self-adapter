@@ -56,7 +56,7 @@ type Gatherer struct {
 }
 
 // GetMetrics gathers metrics for the resource supplied
-func (m *Gatherer) GetMetrics(info metric.Info, podSelector labels.Selector, currentReplicas int32) ([]*metric.ResourceMetric, error) {
+func (m *Gatherer) GetMetrics(info metric.Info, podSelector labels.Selector) ([]*metric.ResourceMetric, error) {
 	// Query metrics server if requested
 	if m.Config.KubernetesMetricSpecs != nil {
 		glog.V(3).Infoln("K8s Metrics specs provided, attempting to query the K8s metrics server")
@@ -86,19 +86,11 @@ func (m *Gatherer) GetMetrics(info metric.Info, podSelector labels.Selector, cur
 		} else {
 			glog.V(3).Infof("Successfully retrieved K8s metrics: %+v", gatheredMetrics)
 		}
-		info.KubernetesMetrics = convertK8sMetricsToCSAK8sMetrics(gatheredMetrics, currentReplicas)
+		info.KubernetesMetrics = convertK8sMetricsToCSAK8sMetrics(gatheredMetrics)
 		glog.V(3).Infoln("Finished querying the K8s metrics server")
 	}
 
-	// TODO remover RunMode e fazer sempre per resource
-	switch m.Config.RunMode {
-	case config.PerPodRunMode:
-		return m.getMetricsForPods(info, podSelector)
-	case config.PerResourceRunMode:
-		return m.getMetricsForResource(info)
-	default:
-		return nil, fmt.Errorf("unknown run mode: %s", m.Config.RunMode)
-	}
+	return m.getMetricsForResource(info)
 }
 
 func (m *Gatherer) getMetricsForResource(info metric.Info) ([]*metric.ResourceMetric, error) {
@@ -151,86 +143,11 @@ func (m *Gatherer) getMetricsForResource(info metric.Info) ([]*metric.ResourceMe
 	return info.Metrics, nil
 }
 
-func (m *Gatherer) getMetricsForPods(info metric.Info, podSelector labels.Selector) ([]*metric.ResourceMetric, error) {
-	glog.V(3).Infoln("Gathering metrics in per-pod mode")
-
-	glog.V(3).Infoln("Attempting to get pods being managed")
-	pods, err := m.Clientset.CoreV1().Pods(m.Config.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods being managed: %w", err)
-	}
-	glog.V(3).Infof("Pods retrieved: %+v", pods)
-
-	// Convert the metric info into JSON
-	specJSON, err := json.Marshal(info)
-	if err != nil {
-		// Should not occur, panic
-		panic(err)
-	}
-
-	if m.Config.PreMetric != nil {
-		glog.V(3).Infoln("Attempting to run pre-metric hook")
-		hookResult, err := m.Execute.ExecuteWithValue(m.Config.PreMetric, string(specJSON))
-		if err != nil {
-			return nil, fmt.Errorf("failed to run pre-metric hook: %w", err)
-		}
-		glog.V(3).Infof("Pre-metric hook response: %+v", hookResult)
-	}
-
-	glog.V(3).Infoln("Attempting to gather metrics for each pod")
-	var metrics []*metric.ResourceMetric
-	for _, pod := range pods.Items {
-		// Convert the Pod description to JSON
-		podSpecJSON, err := json.Marshal(metric.Info{
-			Resource:          &pod,
-			RunType:           info.RunType,
-			KubernetesMetrics: info.KubernetesMetrics,
-		})
-		if err != nil {
-			// Should not occur, panic
-			panic(err)
-		}
-
-		glog.V(3).Infof("Running metric gathering for pod: %s", pod.Name)
-		gathered, err := m.Execute.ExecuteWithValue(m.Config.Metric, string(podSpecJSON))
-		if err != nil {
-			return nil, fmt.Errorf("failed to gather metrics: %w", err)
-		}
-		glog.V(3).Infof("Metric gathered: %+v", gathered)
-
-		// Add metric to metrics array
-		metrics = append(metrics, &metric.ResourceMetric{
-			Resource: pod.GetName(),
-			Value:    gathered,
-		})
-	}
-	glog.V(3).Infoln("All metrics gathered for each pod successfully")
-	info.Metrics = metrics
-
-	if m.Config.PostMetric != nil {
-		glog.V(3).Infoln("Attempting to run post-metric hook")
-		// Convert post metrics into JSON
-		postSpecJSON, err := json.Marshal(info)
-		if err != nil {
-			// Should not occur, panic
-			panic(err)
-		}
-		hookResult, err := m.Execute.ExecuteWithValue(m.Config.PostMetric, string(postSpecJSON))
-		if err != nil {
-			return nil, fmt.Errorf("failed to run post-metric hook: %w", err)
-		}
-		glog.V(3).Infof("Post-metric hook response: %+v", hookResult)
-	}
-
-	return metrics, nil
-}
-
-func convertK8sMetricsToCSAK8sMetrics(metrics []*metrics.Metric, currentReplicas int32) []*k8smetric.Metric {
+func convertK8sMetricsToCSAK8sMetrics(metrics []*metrics.Metric) []*k8smetric.Metric {
 	csaK8sMetrics := []*k8smetric.Metric{}
 	for _, metric := range metrics {
 		csaK8sMetrics = append(csaK8sMetrics, &k8smetric.Metric{
-			Metric:          *metric,
-			CurrentReplicas: currentReplicas,
+			Metric: *metric,
 		})
 	}
 	return csaK8sMetrics

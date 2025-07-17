@@ -16,7 +16,7 @@ limitations under the License.
 
 package config
 
-// Methos describes a method for passing data/triggering logic, such as through
+// Method describes a method for passing data/triggering logic, such as through
 // a shell command
 type Method struct {
 	Type    string `json:"type"`

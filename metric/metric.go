@@ -34,6 +34,5 @@ type ResourceMetric struct {
 type Info struct {
 	Resource          metav1.Object       `json:"resource"`
 	Metrics           []*ResourceMetric   `json:"metrics,omitempty"`
-	RunType           string              `json:"runType"`
 	KubernetesMetrics []*k8smetric.Metric `json:"kubernetesMetrics,omitempty"`
 }

@@ -23,7 +23,6 @@ import (
 )
 
 type Metric struct {
-	CurrentReplicas int32 `json:"current_replicas"`
 	metrics.Metric
 }
 

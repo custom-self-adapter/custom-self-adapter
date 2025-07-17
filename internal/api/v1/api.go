@@ -206,7 +206,6 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 	evaluation, err := api.GetEvaluationer.GetEvaluation(evaluate.Info{
 		Metrics:  metrics,
 		Resource: resource,
-		RunType:  runType,
 	})
 	if err != nil {
 		apiError(w, &apiv1.Error{
