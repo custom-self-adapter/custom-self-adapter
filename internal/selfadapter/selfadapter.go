@@ -75,11 +75,10 @@ func (a *Adapter) Adapt() error {
 	}
 	glog.V(2).Infof("Evaluation: %+v", evaluation)
 
-	glog.V(2).Infoln("Attempint to execute adapt strategy")
+	glog.V(2).Infoln("Attemping to execute adapt strategy")
 	adaptation, err := a.Adapter.Adapt(adapt.Info{
 		Evaluation: *evaluation,
 		Resource:   resource,
-		RunType:    config.AdaptRunType,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to adapt resource: %w", err)

@@ -28,5 +28,4 @@ type Info struct {
 	Evaluation evaluate.Evaluation `json:"evaluation"`
 	Resource   metav1.Object       `json:"resource"`
 	Adaptation *Adaptation         `json:"adaptation,omitempty"`
-	RunType    string              `json:"runType"`
 }

@@ -2,7 +2,7 @@ REGISTRY = registry.k8s.lab
 NAME = custom-self-adapter
 VERSION = latest
 
-default: package_linux_amd64 package_linux_arm64
+default: package_linux_amd64
 	docker build --target=python-3-13 --tag $(REGISTRY)/$(NAME):python-3-13-$(VERSION) --tag $(REGISTRY)/$(NAME):python-$(VERSION) .
 	docker build --target=python-3-12 --tag $(REGISTRY)/$(NAME):python-3-12-$(VERSION) .
 	docker build --target=alpine --tag $(REGISTRY)/$(NAME):alpine-$(VERSION) .

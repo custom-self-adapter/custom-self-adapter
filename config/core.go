@@ -21,18 +21,6 @@ import (
 )
 
 const (
-	// APIRunType marks the metric gathering/evaluation as running during an API
-	// request, which will use the results to adapt
-	APIRunType = "api"
-	// APIDryRunRunType marks the metric gathering/evaluation as running during an
-	// API request, which will only view the results and not use it for adapt
-	APIDryRunRunType = "api_dry_run"
-	// AdaptRunType marks the metric gathering/evaluation as running during an
-	// adapt
-	AdaptRunType = "adapt"
-)
-
-const (
 	// DefaultInterval is the default interval value
 	DefaultInterval = 15000
 	// DefaultNamespace is the default namespace value
@@ -76,6 +64,8 @@ type Config struct {
 	Metric                   *Method                                  `json:"metric"`
 	Adapt                    map[string]*Method                       `json:"adapt"`
 	Interval                 int                                      `json:"interval"`
+	CSAName                  string                                   `json:"csa_name"`
+	CSANamespace             string                                   `json:"csa_namespace"`
 	Namespace                string                                   `json:"namespace"`
 	StartTime                int64                                    `json:"startTime"`
 	LogVerbosity             int32                                    `json:"logVerbosity"`

@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/custom-self-adapter/custom-self-adapter/adapt"
 	apiv1 "github.com/custom-self-adapter/custom-self-adapter/api/v1"
@@ -36,10 +35,6 @@ import (
 	"github.com/custom-self-adapter/custom-self-adapter/metric"
 	"github.com/go-chi/chi"
 	"k8s.io/apimachinery/pkg/labels"
-)
-
-const (
-	dryRunQueryParam = "dry_run"
 )
 
 // API is the Custom Pod Autoscaler REST API, exposing endpoints to retrieve metrics/evaluations
@@ -64,22 +59,6 @@ func (api *API) Routes() {
 }
 
 func (api *API) getMetrics(w http.ResponseWriter, r *http.Request) {
-	// Determine if it is a dry run
-	dryRun := true
-	dryRunParam := r.URL.Query().Get(dryRunQueryParam)
-	if dryRunParam == "" {
-		dryRun = false
-	} else {
-		b, err := strconv.ParseBool(dryRunParam)
-		if err != nil {
-			apiError(w, &apiv1.Error{
-				Message: fmt.Sprintf("Invalid format for 'dry_run' query parameter; '%s' is not a valid boolean value", dryRunParam),
-				Code:    http.StatusBadRequest,
-			})
-			return
-		}
-		dryRun = b
-	}
 
 	// Get resource being managed
 	resource, err := api.Client.Get(api.Config.ScaleTargetRef.APIVersion, api.Config.ScaleTargetRef.Kind, api.Config.ScaleTargetRef.Name, api.Config.Namespace)
@@ -89,12 +68,6 @@ func (api *API) getMetrics(w http.ResponseWriter, r *http.Request) {
 			Code:    http.StatusInternalServerError,
 		})
 		return
-	}
-
-	// Set run type
-	runType := config.APIRunType
-	if dryRun {
-		runType = config.APIDryRunRunType
 	}
 
 	selector, err := labels.Parse(labels.FormatLabels(resource.GetLabels()))
@@ -129,22 +102,6 @@ func (api *API) getMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
-	// Determine if it is a dry run
-	dryRun := true
-	dryRunParam := r.URL.Query().Get(dryRunQueryParam)
-	if dryRunParam == "" {
-		dryRun = false
-	} else {
-		b, err := strconv.ParseBool(dryRunParam)
-		if err != nil {
-			apiError(w, &apiv1.Error{
-				Message: fmt.Sprintf("Invalid format for 'dry_run' query parameter; '%s' is not a valid boolean value", dryRunParam),
-				Code:    http.StatusBadRequest,
-			})
-			return
-		}
-		dryRun = b
-	}
 
 	// Get resource being managed
 	resource, err := api.Client.Get(api.Config.ScaleTargetRef.APIVersion, api.Config.ScaleTargetRef.Kind, api.Config.ScaleTargetRef.Name, api.Config.Namespace)
@@ -157,12 +114,6 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	selector, err := labels.Parse(labels.FormatLabels(resource.GetLabels()))
-
-	// Set run type
-	runType := config.APIRunType
-	if dryRun {
-		runType = config.APIDryRunRunType
-	}
 
 	// Get metrics
 	metrics, err := api.GetMetricer.GetMetrics(metric.Info{
@@ -189,28 +140,24 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Scale if not a dry run
-	if !dryRun {
-		adaptation, err := api.Adapter.Adapt(adapt.Info{
-			Evaluation: *evaluation,
-			Resource:   resource,
-			RunType:    runType,
+	adaptation, err := api.Adapter.Adapt(adapt.Info{
+		Evaluation: *evaluation,
+		Resource:   resource,
+	})
+	if err != nil {
+		apiError(w, &apiv1.Error{
+			Message: err.Error(),
+			Code:    http.StatusInternalServerError,
 		})
-		if err != nil {
-			apiError(w, &apiv1.Error{
-				Message: err.Error(),
-				Code:    http.StatusInternalServerError,
-			})
-			return
-		}
-		response, err := json.Marshal(adaptation)
-		if err != nil {
-			// Should not occur, panic
-			panic(err)
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(response)
+		return
 	}
+	response, err := json.Marshal(adaptation)
+	if err != nil {
+		// Should not occur, panic
+		panic(err)
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(response)
 
 }
 
