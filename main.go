@@ -235,8 +235,8 @@ func main() {
 			Adapter:         adapter,
 		}
 
-		// Run the scaler in a goroutine, triggered by the ticker
-		// listen for shutdown requests, once received shut down the autoscaler
+		// Run the self-adapter in a goroutine, triggered by the ticker
+		// listen for shutdown requests, once received shut down the self-adapter
 		// and the API
 		go func() {
 			for {
@@ -247,7 +247,7 @@ func main() {
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					srv.Shutdown(ctx)
-					// Stop autoscaler
+					// Stop self-adapter
 					ticker.Stop()
 					return
 				case <-ticker.C:
