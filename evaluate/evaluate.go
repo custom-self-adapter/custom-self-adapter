@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO Structurate the answer that the evaluation script will give.
 // This will instruct CSA to select an adapt strategy by informing which
 // adapt script to run.
 type Evaluation struct {
