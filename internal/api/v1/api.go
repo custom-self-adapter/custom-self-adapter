@@ -54,7 +54,7 @@ func (api *API) Routes() {
 		r.NotFound(api.notFound)
 		r.MethodNotAllowed(api.methodNotAllowed)
 		r.Get("/metrics", api.getMetrics)
-		r.Post("/evaluation", api.getEvaluation)
+		r.Post("/adaptation", api.doAdaptation)
 	})
 }
 
@@ -101,7 +101,7 @@ func (api *API) getMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
-func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
+func (api *API) doAdaptation(w http.ResponseWriter, r *http.Request) {
 
 	// Get resource being managed
 	resource, err := api.Client.Get(api.Config.ScaleTargetRef.APIVersion, api.Config.ScaleTargetRef.Kind, api.Config.ScaleTargetRef.Name, api.Config.Namespace)
@@ -114,6 +114,13 @@ func (api *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	selector, err := labels.Parse(labels.FormatLabels(resource.GetLabels()))
+	if err != nil {
+		apiError(w, &apiv1.Error{
+			Message: err.Error(),
+			Code: http.StatusInternalServerError,
+		})
+		return
+	}
 
 	// Get metrics
 	metrics, err := api.GetMetricer.GetMetrics(metric.Info{
