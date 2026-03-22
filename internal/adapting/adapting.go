@@ -59,7 +59,7 @@ func (a *Adapt) Adapt(info adapt.Info) (*adapt.Adaptation, error) {
 
 	strategy, exists := a.Config.Adapt[info.Evaluation.Strategy]
 	if !exists {
-		return nil, fmt.Errorf("Strategy does not exists: %v", strategy)
+		return nil, fmt.Errorf("strategy does not exists: %v", strategy)
 	}
 
 	glog.V(3).Infoln("Attempting to run adaptation logic")
