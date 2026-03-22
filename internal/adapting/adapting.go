@@ -42,12 +42,12 @@ type Adapt struct {
 
 func (a *Adapt) Adapt(info adapt.Info) (*adapt.Adaptation, error) {
 	glog.V(3).Infof("Executing the adaptation strategy: %w", info.Evaluation.Strategy)
-	
+
 	specJSON, err := json.Marshal(info)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	if a.Config.PreAdapt != nil {
 		glog.V(3).Infoln("Attempting to run pre-adapt hook")
 		hookResult, err := a.Execute.ExecuteWithValue(a.Config.PreAdapt, string(specJSON))
@@ -77,7 +77,7 @@ func (a *Adapt) Adapt(info adapt.Info) (*adapt.Adaptation, error) {
 	}
 
 	info.Adaptation = adaptation
-	
+
 	if a.Config.PostAdapt != nil {
 		glog.V(3).Infoln("Attempting to run post-adapt hook")
 		// Convert post adaptation into JSON

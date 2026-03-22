@@ -117,7 +117,7 @@ func (api *API) doAdaptation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		apiError(w, &apiv1.Error{
 			Message: err.Error(),
-			Code: http.StatusInternalServerError,
+			Code:    http.StatusInternalServerError,
 		})
 		return
 	}
