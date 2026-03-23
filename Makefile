@@ -1,6 +1,6 @@
-REGISTRY = registry.k8s.lab
+REGISTRY = customselfadapter
 NAME = custom-self-adapter
-VERSION = latest
+VERSION = 1.0
 
 default: package_linux_amd64
 	docker build --target=python-3-13 --tag $(REGISTRY)/$(NAME):python-3-13-$(VERSION) --tag $(REGISTRY)/$(NAME):python-$(VERSION) .
@@ -70,7 +70,7 @@ package_windows_amd64:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-X 'main.Version=$(VERSION)'" -o dist/windows_amd64/custom-self-adapter.exe main.go
 	cp LICENSE dist/windows_amd64/LICENSE
 	tar -czvf custom-self-adapter-windows-amd64.tar.gz dist/windows_amd64/*
-
+	
 docker_multi_platform: package_linux_amd64 package_linux_arm64
 	docker buildx build --push --platform=linux/amd64,linux/arm64 --target=python-3-13 --tag $(REGISTRY)/python-3-13:$(VERSION) --tag $(REGISTRY)/python:$(VERSION) .
 	docker buildx build --push --platform=linux/amd64,linux/arm64 --target=python-3-12 --tag $(REGISTRY)/python-3-12:$(VERSION) .
